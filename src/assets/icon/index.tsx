@@ -1,0 +1,6 @@
+export { default as boldIcon } from './bold.svg'
+export { default as italicIcon } from './italic.svg'
+export { default as sizeAddIcon } from './size-add.svg'
+export { default as sizeMinusIcon } from './size-minus.svg'
+export { default as strikeoutIcon } from './strikeout.svg'
+export { default as underlineIcon } from './underline.svg'
