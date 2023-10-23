@@ -1,4 +1,4 @@
-const drwaPagePaddingIndicators = (ctx: CanvasRenderingContext2D, pageConfig: SinglePageConfigType) => {
+const drwaPagePaddingIndicators = (ctx: CanvasRenderingContext2D, pageConfig: SinglePageConfigType, dpr: number) => {
   const { pagePadding, pageWidth, pageHeight, pagePaddingIndicatorColor, pagePaddingIndicatorSize } = pageConfig
   /** 保存当前 canvas 状态 */
   ctx.save()
@@ -6,9 +6,9 @@ const drwaPagePaddingIndicators = (ctx: CanvasRenderingContext2D, pageConfig: Si
   let list: Array<[Point, Point, Point]> = [
     // 左上
     [
-      [pagePadding[3], pagePadding[0] - pagePaddingIndicatorSize],
+      [pagePadding[3], (pagePadding[0] - pagePaddingIndicatorSize)],
       [pagePadding[3], pagePadding[0]],
-      [pagePadding[3] - pagePaddingIndicatorSize, pagePadding[0]],
+      [(pagePadding[3] - pagePaddingIndicatorSize), pagePadding[0]],
     ],
     // 右上
     [
@@ -32,6 +32,7 @@ const drwaPagePaddingIndicators = (ctx: CanvasRenderingContext2D, pageConfig: Si
 
   list.forEach((item) => {
     item.forEach((point, index) => {
+      const curPoint = point.map(i => i / dpr) as Point
       if (index === 0) {
           ctx.beginPath()
           ctx.moveTo(...point)

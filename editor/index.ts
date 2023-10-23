@@ -1,4 +1,3 @@
-// import { MouseEvent } from 'react'
 import { drwaPagePaddingIndicators, getFontConfig } from './utils'
 
 class Editor {
@@ -14,7 +13,10 @@ class Editor {
   private positionList: Array<any>
   /** 光标 */
   private cursorEl: HTMLDivElement | null
-
+  /** 文本输入框元素 */
+  private textareEl: HTMLTextAreaElement | null
+  /** 是否正在输入拼音 */
+  private isComposition: boolean
   
   constructor(container: HTMLDivElement, data: Array<any> = [], options: EditorPageOptions = {}) {
     this.container = container
@@ -44,6 +46,10 @@ class Editor {
 
     // 渲染光标
     this.cursorEl = null
+    // 文本输入框元素
+    this.textareEl = null
+    // 是否正在输入拼音
+    this.isComposition = false
   }
 
   /**
@@ -95,6 +101,7 @@ class Editor {
    */
   renderRow(ctx: CanvasRenderingContext2D, renderHeight: number, row: any,  pageIndex: number, rowIndex: number) {
     const { color, pagePadding } = this.options
+    const dpr = this.getPagePixelRatio()
     // 内边距
     const offsetX = pagePadding[3]
     const offsetY = pagePadding[0]
@@ -188,14 +195,19 @@ class Editor {
   private createPage(pageIndex: number) {
     let { pageWidth, pageHeight, pageMargin } = this.options
     let canvas = document.createElement('canvas')
-    canvas.width = pageWidth
-    canvas.height = pageHeight
+    // 设置分辨率
+    const dpr = this.getPagePixelRatio()
+    canvas.width = pageWidth * dpr
+    canvas.height = pageHeight * dpr
     canvas.style.cursor = 'text'
     canvas.style.backgroundColor = '#fff'
     canvas.style.boxShadow = "#9ea1a566 0 2px 12px"
+    canvas.style.width = `${pageWidth}px`
+    canvas.style.height = `${pageHeight}px`
     canvas.style.marginBottom = pageMargin + 'px'
     this.container.appendChild(canvas)
     let ctx = canvas.getContext('2d')!
+    ctx.scale(dpr, dpr)
     this.pageCanvasList.push(canvas)
     this.pageCanvasCtxList.push(ctx)
 
@@ -274,18 +286,35 @@ class Editor {
   }
 
   /** 获取光标信息 */
-  private getCursorInfo(positionIndex: number) {
+  private getCursorInfo(positionIndex: number): { x: number, y: number, height: number } {
     const position = this.positionList[positionIndex]
-    const { fontSize } = this.options
+    const { fontSize, pagePadding, lineHeight } = this.options
     // 光标高度在字号的基础上再高一点
     const height = position?.size || fontSize
     const plusHeight = height / 2
     const actHeight = height + plusHeight
 
+    // 当前光标位置处没有元素
     if (!position) {
-      /** 当前光标位置处没有元素 */
-      const next = this.posi
+      const next = this.positionList[positionIndex + 1]
+      if (next) {
+        // 存在下一个元素
+        const nextCursorInfo = this.getCursorInfo(positionIndex + 1)
+        return {
+          x: pagePadding[3],
+          y: nextCursorInfo.y,
+          height: nextCursorInfo.height
+        }
+      } else {
+        // 不存在下一个元素，即文档为空
+        return {
+          x: pagePadding[3],
+          y: pagePadding[0] + (height * lineHeight - actHeight) / 2,
+          height: actHeight
+        }
+      }
     }
+
 
     // 元素所在行
     const row = this.rows[position.rowIndex]
@@ -296,8 +325,11 @@ class Editor {
       - actHeight
       + (actHeight - Math.max(height, position.info.height)) / 2
 
+    // 是否是换行
+    const isNewLineCharacter = position.value === '\n'
+
     return {
-      x: position.rect.rightTop[0],
+      x: isNewLineCharacter ? position.rect.leftTop[0] : position.rect.rightTop[0],
       y,
       height: actHeight
     }
@@ -316,6 +348,12 @@ class Editor {
     this.cursorEl.style.left = `${left}px`
     this.cursorEl.style.top = `${top}px`
     this.cursorEl.style.height = `${height}px`
+
+    // 由于 setCoursor 是在mousedown方法里调用
+    // mouseup事件触发后会触发 失焦
+    setTimeout(() => {
+      this.focus()
+    }, 0)
   }
 
   /**
@@ -344,10 +382,11 @@ class Editor {
    */
   private renderPagePaddingIndicators(pageNo: number) {
     let ctx = this.pageCanvasCtxList[pageNo]
+    const dpr = this.getPagePixelRatio()
     if (!ctx) {
       return
     }
-    drwaPagePaddingIndicators(ctx, this.options)
+    drwaPagePaddingIndicators(ctx, this.options, dpr)
   }
 
   /**
@@ -444,6 +483,51 @@ class Editor {
       item.remove()
     })
     this.pageCanvasCtxList = []
+  }
+
+  /**
+   * 聚焦
+   */
+  public focus() {
+    if (!this.textareEl) {
+      this.textareEl = document.createElement('textarea')
+      this.textareEl.style.position = 'fixed'
+      this.textareEl.style.left = '-99999px'
+      document.body.appendChild(this.textareEl)
+    } else {
+      this.textareEl.addEventListener('input', (e: Event) => { this.onInput(e as InputEvent) })
+    }
+    this.textareEl?.focus()
+  }
+
+  /**
+   * 失焦
+   */
+  public blur() {
+    if (!this.textareEl) {
+      return
+    }
+    this.textareEl.blur()
+  }
+
+  /** 
+   * 输入事件 
+   */
+  public onInput(e: InputEvent) {
+    setTimeout(() => {
+      let data = e.data
+      if (!data || this.isComposition) {
+        return
+      }
+    }, 0)
+  }
+
+  /**
+   * 获取页面像素比
+   * @returns 
+   */
+  public getPagePixelRatio(): number {
+    return window.devicePixelRatio
   }
 }
 
